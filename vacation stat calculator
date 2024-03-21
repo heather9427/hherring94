@@ -1,0 +1,60 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+from datetime import datetime, timedelta
+
+# URL of the BTS tourism statistics page
+tourism_stats_url = 'https://www.bts.gov/archive/publications/state_transportation_statistics/summary/table_04_19'
+
+# Send a GET request to the webpage
+stats_response = requests.get(tourism_stats_url)
+if stats_response.status_code == 200:
+    stats_soup = BeautifulSoup(stats_response.text, 'html.parser')
+    stats_table = stats_soup.find('table')
+
+    for row in stats_table.find_all('tr')[1:]:  # Skip header row
+        # Find all cells in this row with the class 'dataCellRight'
+        data_cells = row.find_all('td', class_='dataCellRight')
+        
+        # The structure based on your screenshot seems to be that the first 'dataCellRight' after the city name is 'Visitors (thousands)'
+        # Check if the first column (city name) contains 'Miami, FL'
+        if data_cells and row.find('td').text.strip() == "Miami, FL":
+            # Since 'dataCellRight' class is used for multiple columns, you must know the index of the visitors count
+            # Assuming it's the second 'dataCellRight' cell in the row for the year 2000
+            visitors_2000 = data_cells[1].text.strip().replace(',', '')  # Second cell has visitors for 2000 based on your screenshot
+            print(visitors_2000)
+            break  # Break the loop after finding the data
+else:
+    print(f"Failed to fetch tourism statistics data: HTTP Status Code {stats_response.status_code}")
+
+weather_url = "https://api.open-meteo.com/v1/forecast"
+weather_params = {
+    "latitude": 25.7617,
+    "longitude": -80.1918,
+    "hourly": "temperature_2m",
+    "start": datetime.utcnow().strftime('%Y-%m-%d'),
+    "end": (datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d')
+}
+weather_response = requests.get(weather_url, params=weather_params)
+
+hourly_dataframe = None
+if weather_response.status_code == 200:
+    weather_data = weather_response.json()
+
+    hourly_data = {
+        "date": weather_data['hourly']['time'],
+        "temperature_2m": weather_data['hourly']['temperature_2m']
+    }
+    hourly_dataframe = pd.DataFrame(hourly_data)
+    hourly_dataframe['date'] = pd.to_datetime(hourly_dataframe['date'], utc=True)
+    hourly_dataframe['Month'] = hourly_dataframe['date'].dt.month_name()
+else:
+    print(f"Failed to fetch weather data: HTTP Status Code {weather_response.status_code}")
+
+# Combine the visitors data with the current weather data if needed
+if visitors_2000 and hourly_dataframe is not None:
+    current_weather = hourly_dataframe.loc[hourly_dataframe['date'] == datetime.utcnow().strftime('%Y-%m-%d %H:00:00+00:00')]
+    print(f"Visitors in Miami for the year 2000: {visitors_2000} thousand")
+    print(f"Current temperature in Miami: {current_weather['temperature_2m'].iloc[0]}°C")
+else:
+    print("Data not available")
