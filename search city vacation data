@@ -1,0 +1,58 @@
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
+
+# Function to scrape visitors data
+def scrape_visitors_data(city_name):
+    tourism_stats_url = 'https://www.bts.gov/archive/publications/state_transportation_statistics/summary/table_04_19'
+    stats_response = requests.get(tourism_stats_url)
+    if stats_response.status_code == 200:
+        stats_soup = BeautifulSoup(stats_response.text, 'html.parser')
+        stats_table = stats_soup.find('table')
+
+        for row in stats_table.find_all('tr')[1:]:  # Skip header row
+            data_cells = row.find_all('td')
+            if data_cells and city_name in row.find('td').text.strip():
+                visitors = data_cells[1].text.strip().replace(',', '')  # Assume second cell has visitors for 2000
+                return visitors
+        return "City not found in the table."
+    else:
+        return f"Failed to fetch tourism statistics data: HTTP Status Code {stats_response.status_code}"
+
+# Function to fetch weather data
+def fetch_weather_data(latitude, longitude):
+    weather_url = "https://api.open-meteo.com/v1/forecast"
+    weather_params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "hourly": "temperature_2m",
+        "start": datetime.utcnow().strftime('%Y-%m-%d'),
+        "end": (datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d')
+    }
+    weather_response = requests.get(weather_url, params=weather_params)
+
+    if weather_response.status_code == 200:
+        weather_data = weather_response.json()
+        current_temp = weather_data['hourly']['temperature_2m'][0]  # Get the current temperature
+        return current_temp
+    else:
+        return f"Failed to fetch weather data: HTTP Status Code {weather_response.status_code}"
+
+# User input for city name
+user_city = input("Enter a city name to get visitors and weather data: ").strip()
+
+coordinates = {
+    "Miami, FL": {"latitude": 25.7617, "longitude": -80.1918},
+    "Boston, MA": {"latitude": 42.3601, "longitude": -71.0589},
+    "Chicago, IL": {"latitude": 41.8781, "longitude": -87.6298},
+    "Las Vegas, NV": {"latitude": 36.1699, "longitude": -115.1398}
+}
+
+# Check if the entered city is in the coordinates dictionary
+if user_city in coordinates:
+    visitors_count = scrape_visitors_data(user_city)
+    current_temperature = fetch_weather_data(coordinates[user_city]['latitude'], coordinates[user_city]['longitude'])
+    print(f"Visitors in {user_city} for the year 2000: {visitors_count} thousand")
+    print(f"Current temperature in {user_city}: {current_temperature}°C")
+else:
+    print("City coordinates not found. Please add the city to the coordinates dictionary.")
