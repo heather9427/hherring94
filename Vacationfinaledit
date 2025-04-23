@@ -1,0 +1,73 @@
+import requests
+from datetime import datetime, timedelta
+
+# Define the coordinates dictionary at the beginning
+coordinates = {
+    "Miami": {"latitude": 25.7617, "longitude": -80.1918},
+    "Boston": {"latitude": 42.3601, "longitude": -71.0589},
+    "Chicago": {"latitude": 41.8781, "longitude": -87.6298},
+    "Las Vegas": {"latitude": 36.1699, "longitude": -115.1398},
+    "San Diego": {"latitude": 32.7157, "longitude": -117.1611},
+    "Philadelphia": {"latitude": 39.9526, "longitude": -75.1652},
+    "Houston": {"latitude": 29.7604, "longitude": -95.3698}
+}
+
+# Manually defined visitor stats
+visitor_stats = {
+    "Miami": 24.2,
+    "Boston": 22.7,
+    "Chicago": 57.6,
+    "Las Vegas": 42,
+    "San Diego": 35,
+    "Philadelphia": 46,
+    "Houston": 22.3,
+}
+
+# Function to fetch weather data
+def fetch_weather_data(latitude, longitude):
+    weather_url = "https://api.open-meteo.com/v1/forecast"
+    weather_params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "hourly": "temperature_2m",
+        "start": datetime.utcnow().strftime('%Y-%m-%d'),
+        "end": (datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d')
+    }
+    weather_response = requests.get(weather_url, params=weather_params)
+
+    if weather_response.status_code == 200:
+        weather_data = weather_response.json()
+        current_temp = weather_data['hourly']['temperature_2m'][0]  # Get the current temperature
+        return float(current_temp)  # Convert to float
+    else:
+        return None  # Return None if error fetching data
+
+# Rating function
+def rate_destination(visitors, temperature):
+    low_visitors_threshold = 3000
+    warm_temperature_threshold = 25
+    if visitors and temperature:
+        if visitors <= low_visitors_threshold and temperature >= warm_temperature_threshold:
+            return 'A+'
+        elif visitors <= low_visitors_threshold or temperature >= warm_temperature_threshold:
+            return 'B'
+        else:
+            return 'C'
+    else:
+        return 'Rating not available'
+
+# Main script execution
+if __name__ == "__main__":
+    user_city = input("Enter a city name to get visitors and weather data: ").strip()
+    if user_city in coordinates:
+        visitors_count = visitor_stats.get(user_city, "Data not available for this city.")
+        current_temperature = fetch_weather_data(coordinates[user_city]['latitude'], coordinates[user_city]['longitude'])
+        if visitors_count != "Data not available for this city." and current_temperature is not None:
+            rating = rate_destination(visitors_count, current_temperature)
+            print(f"Visitors in {user_city} for 2023: {visitors_count} million")
+            print(f"Current temperature in {user_city}: {current_temperature}°C")
+            print(f"Destination Rating: {rating}")
+        else:
+            print(visitors_count)  # Visitors data not available
+    else:
+        print("City coordinates not found. Please add the city to the coordinates dictionary.")
